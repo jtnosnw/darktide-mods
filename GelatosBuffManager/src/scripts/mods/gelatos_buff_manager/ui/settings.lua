@@ -9,4 +9,6 @@ return {
 	-- Negative pane height reserves this strip at the window bottom for ACTION HISTORY.
 	HISTORY_PANEL_OFFSET = -136,
 	OVER_LIMIT_LINE_HEIGHT = 24,
+	-- First-frame estimate only; the virtualizer measures the real height and self-corrects.
+	NAV_ROW_HEIGHT = 57,
 }

@@ -114,4 +114,122 @@ function ImguiHelpers.pop_width(pushed)
 	end
 end
 
+-- SHARED LIST RENDERER -- every list/pane in GBM must go through this, never a hand-rolled loop.
+--
+-- Emitting a widget per row for a few thousand buffs costs thousands of ImGui commands and image
+-- draws every frame, whether or not the rows are on screen. This draws only the rows inside the
+-- scroll viewport and replaces the rest with two spacer blocks of the correct height, so scroll
+-- position and scrollbar length stay exactly as if every row had been drawn.
+--
+-- The ImGui binding shipped with Darktide is old and we cannot assume the scroll query functions
+-- exist, so capability is probed once. When anything required is missing we fall back to drawing
+-- every row -- correct, just as slow as before, never broken.
+
+local VIRTUAL_OVERSCAN_ROWS = 4
+local MIN_ROW_HEIGHT = 4
+
+local _virtualization_supported = nil
+local _virtualization_logged = false
+
+local function _window_height()
+	if Imgui.get_window_size then
+		local _, height = Imgui.get_window_size()
+		return height
+	end
+	if Imgui.get_window_height then
+		return Imgui.get_window_height()
+	end
+	return nil
+end
+
+local function _can_virtualize()
+	if _virtualization_supported == nil then
+		_virtualization_supported = (Imgui.get_scroll_y ~= nil)
+			and (Imgui.get_cursor_pos_y ~= nil)
+			and (Imgui.dummy ~= nil)
+			and (Imgui.get_window_size ~= nil or Imgui.get_window_height ~= nil)
+
+		if not _virtualization_logged then
+			_virtualization_logged = true
+			if _virtualization_supported then
+				mod:info("Gelato's Buff Manager: ImGui scroll queries available -- long lists are virtualized.")
+			else
+				mod:info(
+					"Gelato's Buff Manager: ImGui scroll queries unavailable -- long lists draw every row (slower, but correct).")
+			end
+		end
+	end
+
+	return _virtualization_supported
+end
+
+-- draw_row(index) draws exactly one row. Rows must be uniform height (GBM's are: the buff icon is
+-- always the tallest element, so a 1-line and a 3-line label produce the same advance).
+--
+-- row_height is a starting estimate only. The true height is measured from the rows actually drawn
+-- and returned, so the caller can feed it back next frame and the layout self-corrects rather than
+-- drifting on a stale constant.
+function ImguiHelpers.draw_virtualized_rows(count, row_height, draw_row)
+	if type(count) ~= "number" or count <= 0 or type(draw_row) ~= "function" then
+		return row_height
+	end
+
+	if not _can_virtualize() then
+		for i = 1, count do
+			draw_row(i)
+		end
+		return row_height
+	end
+
+	if type(row_height) ~= "number" or row_height < MIN_ROW_HEIGHT then
+		row_height = MIN_ROW_HEIGHT
+	end
+
+	local list_top = Imgui.get_cursor_pos_y()
+	local scroll_y = Imgui.get_scroll_y() or 0
+	local view_height = _window_height() or 0
+
+	local first = math.floor((scroll_y - list_top) / row_height) + 1 - VIRTUAL_OVERSCAN_ROWS
+	local last = math.ceil((scroll_y + view_height - list_top) / row_height) + VIRTUAL_OVERSCAN_ROWS
+
+	-- Clamped so at least one row is ALWAYS drawn. row_height starts as an estimate, and the only
+	-- way to correct it is to measure a real row -- if a bad estimate ever pushed the range off
+	-- the end of the list we would draw nothing, measure nothing, and stay wrong forever with a
+	-- blank list. Drawing one row costs nothing and guarantees the estimate converges.
+	if first < 1 then
+		first = 1
+	elseif first > count then
+		first = count
+	end
+
+	if last > count then
+		last = count
+	elseif last < first then
+		last = first
+	end
+
+	if first > 1 then
+		Imgui.dummy(1, (first - 1) * row_height)
+	end
+
+	local measure_top = Imgui.get_cursor_pos_y()
+
+	for i = first, last do
+		draw_row(i)
+	end
+
+	local drawn = last - first + 1
+	local measured = (Imgui.get_cursor_pos_y() - measure_top) / drawn
+
+	if last < count then
+		Imgui.dummy(1, (count - last) * row_height)
+	end
+
+	if measured >= MIN_ROW_HEIGHT then
+		return measured
+	end
+
+	return row_height
+end
+
 return ImguiHelpers

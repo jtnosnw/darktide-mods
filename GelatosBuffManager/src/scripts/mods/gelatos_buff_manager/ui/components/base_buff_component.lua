@@ -9,16 +9,6 @@ function BaseBuffComponent:init(buffs_data)
 	self._buffs_data = buffs_data
 end
 
-function BaseBuffComponent:_get_buffs_for_bar(bar_name, buffs_data)
-	buffs_data = buffs_data or self._buffs_data
-	if table.is_nil_or_empty(buffs_data) then
-		return nil
-	end
-	return table.filter(buffs_data, function(data)
-		return data.bar_name == bar_name
-	end)
-end
-
 function BaseBuffComponent:update()
 	BaseBuffComponent.super.update(self)
 end

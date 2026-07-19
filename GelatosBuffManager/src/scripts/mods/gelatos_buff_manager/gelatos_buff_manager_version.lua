@@ -7,4 +7,4 @@
 --
 -- Bump this string (and only this string) on every release; everywhere else
 -- reads it from here. First public-ready build should be tagged "1.0.0".
-return "0.23.4"
+return "0.24.0"

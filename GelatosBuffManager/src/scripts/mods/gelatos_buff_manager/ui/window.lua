@@ -15,6 +15,7 @@ end
 
 local BuffData = mod:io_dofile("gelatos_buff_manager/scripts/mods/gelatos_buff_manager/models/buff_data")
 local Classifier = mod:io_dofile("gelatos_buff_manager/scripts/mods/gelatos_buff_manager/classification/buff_classifier")
+local BuffIconIndex = mod:io_dofile("gelatos_buff_manager/scripts/mods/gelatos_buff_manager/classification/buff_icon_index")
 local BuffsDataPersist = mod:io_dofile("gelatos_buff_manager/scripts/mods/gelatos_buff_manager/utilities/buffs_data_persist")
 local VERSION = mod:io_dofile("gelatos_buff_manager/scripts/mods/gelatos_buff_manager/gelatos_buff_manager_version")
 
@@ -38,98 +39,6 @@ local BUFFS_DATA_SETTING_ID = "buffs_data"
 -- -------------------------------
 -- ------- Local Functions -------
 -- -------------------------------
-
-local function _add_unique_name(candidate_names, value)
-	if not value or value == "" then
-		return
-	end
-	for _, existing_value in ipairs(candidate_names) do
-		if existing_value == value then
-			return
-		end
-	end
-	table.insert(candidate_names, value)
-end
-
-local function _get_buff_name_candidates(buff_name)
-	local candidate_names = {}
-	_add_unique_name(candidate_names, buff_name)
-	_add_unique_name(candidate_names, buff_name:gsub("_parent$", ""))
-	_add_unique_name(candidate_names, buff_name:gsub("_child$", ""))
-	_add_unique_name(candidate_names, buff_name:gsub("_proc$", ""))
-	return candidate_names
-end
-
-local function _item_has_trait_name(item, candidate_names)
-	if type(item) ~= "table" then
-		return false
-	end
-
-	for _, candidate_name in ipairs(candidate_names) do
-		if item.trait == candidate_name or item.trait_name == candidate_name then
-			return true
-		end
-
-		if type(item.traits) == "table" then
-			for _, trait in pairs(item.traits) do
-				if trait == candidate_name then
-					return true
-				end
-				if type(trait) == "table" then
-					if trait.name == candidate_name or trait.id == candidate_name or trait.trait == candidate_name or
-						trait.trait_name == candidate_name then
-						return true
-					end
-				end
-			end
-		end
-	end
-
-	return false
-end
-
-local function get_icon(buff_template, cached_items)
-	if buff_template.hide_icon_in_hud then
-		return nil
-	end
-
-	if buff_template.hud_icon then
-		return buff_template.hud_icon
-	end
-
-	local candidate_names = _get_buff_name_candidates(buff_template.name)
-
-	for _, candidate_name in ipairs(candidate_names) do
-		local parent = table.find_by_key(BUFF_TEMPLATES, "child_buff_template", candidate_name)
-		if parent and BUFF_TEMPLATES[parent] and BUFF_TEMPLATES[parent].hud_icon then
-			return BUFF_TEMPLATES[parent].hud_icon
-		end
-	end
-
-	if buff_template.child_buff_template then
-		local child_template = table.find_by_key(BUFF_TEMPLATES, "name", buff_template.child_buff_template)
-		if child_template and child_template.hud_icon then
-			return child_template.hud_icon
-		end
-	end
-
-	if type(cached_items) ~= "table" then
-		cached_items = {}
-	end
-
-	for _, item in pairs(cached_items) do
-		if _item_has_trait_name(item, candidate_names) then
-			if item.icon and item.icon ~= "" then
-				return item.icon
-			end
-			if item.hud_icon and item.hud_icon ~= "" then
-				return item.hud_icon
-			end
-		end
-	end
-
-	return nil
-end
 
 local function _clone_buffs_data(source_buffs_data)
 	local cloned_buffs_data = {}
@@ -204,13 +113,25 @@ end
 -- ------ Private Functions ------
 -- -------------------------------
 
+-- Reused across the whole catalog build so the per-template loop allocates nothing.
+local _candidates_scratch = {}
+
 function ManagementWindow:_reindex_catalog_data()
 	local catalog = {}
 	local cached_items = MASTER_ITEMS.get_cached()
 
-	for buff_category, template in pairs(BUFF_TEMPLATES) do
-		if not (buff_category == "PREDICTED" or buff_category == "NON_PREDICTED") then
-			local ok, icon = pcall(get_icon, template, cached_items)
+	-- Rebuilt every time, not just once at load, so a re-index after a game patch is honest.
+	local ok_index, index_err = pcall(BuffIconIndex.build, BUFF_TEMPLATES, cached_items)
+	if not ok_index then
+		mod:error(("Gelato's Buff Manager: failed to build the buff icon index: %s"):format(tostring(index_err)))
+		self._catalog_cache = catalog
+		self._catalog_cache_ready = true
+		return catalog
+	end
+
+	for key, template in pairs(BUFF_TEMPLATES) do
+		if not BuffIconIndex.NON_TEMPLATE_KEYS[key] and type(template) == "table" and template.name then
+			local ok, icon = pcall(BuffIconIndex.get_icon, template, _candidates_scratch)
 			if ok and not string.is_nil_or_whitespace(icon) then
 				local category, archetype = Classifier.classify(template.name)
 				catalog[template.name] = BuffData:new({

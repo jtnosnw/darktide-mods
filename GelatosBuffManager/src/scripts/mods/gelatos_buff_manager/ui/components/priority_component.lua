@@ -8,13 +8,17 @@ local ActionHistory = mod:io_dofile(
 
 local CLASS_NAME = "PriorityComponent"
 
-local PRIORITY_HELP_LOC_ID = "gbm_priority_help"
-local SET_SELECTED_LABEL_LOC_ID = "gbm_priority_set_selected_label"
-local SET_SELECTED_DEFAULT_LOC_ID = "gbm_priority_set_selected_default"
-local RESET_ALL_LOC_ID = "gbm_priority_reset_all"
-local APPLIED_LOC_ID = "gbm_priority_applied"
-local RESET_ALL_DONE_LOC_ID = "gbm_priority_reset_all_done"
-local NO_SELECTION_ERROR_LOC_ID = "gbm_priority_no_selection_error"
+-- Static labels resolved once at load; only parameterised strings stay dynamic.
+local L = {
+	HELP = mod:localize("gbm_priority_help"),
+	SET_SELECTED_LABEL = mod:localize("gbm_priority_set_selected_label"),
+	SET_SELECTED_DEFAULT = mod:localize("gbm_priority_set_selected_default"),
+	RESET_ALL = mod:localize("gbm_priority_reset_all"),
+	NO_SELECTION_ERROR = mod:localize("gbm_priority_no_selection_error"),
+	WARN_PRIO_NONE = mod:localize("gbm_hist_warn_prio_none"),
+}
+
+local SET_PRIORITY_COMBO_ID = CLASS_NAME .. "_SET_PRIORITY"
 
 local PRIORITY_COMBO_ITEMS = { "0", "1 (default)", "2" }
 local DEFAULT_COMBO_INDEX = BuffPriorities.DEFAULT + 1
@@ -36,26 +40,25 @@ function PriorityComponent:_apply_to_selected(priority_value)
 	local selected_count = nav_tree and nav_tree:get_selected_count() or 0
 
 	if selected_count == 0 or not selected_names then
-		self._action_status = mod:localize(NO_SELECTION_ERROR_LOC_ID)
-		ActionHistory.warn(mod:localize("gbm_hist_warn_prio_none"))
+		self._action_status = L.NO_SELECTION_ERROR
+		ActionHistory.warn(L.WARN_PRIO_NONE)
 		return
 	end
 
 	BuffPriorities.set_many(selected_names, priority_value)
-	self._action_status = mod:localize(APPLIED_LOC_ID, selected_count, priority_value)
+	self._action_status = mod:localize("gbm_priority_applied", selected_count, priority_value)
 	ActionHistory.log(mod:localize("gbm_hist_prio_selected", selected_count, priority_value))
 end
 
 function PriorityComponent:update()
-	Imgui.text(mod:localize(PRIORITY_HELP_LOC_ID))
+	Imgui.text(L.HELP)
 	Imgui.separator()
 
-	Imgui.text(mod:localize(SET_SELECTED_LABEL_LOC_ID))
+	Imgui.text(L.SET_SELECTED_LABEL)
 	Imgui.same_line()
 
 	local width_pushed = Imgui_helpers.push_width(COMBO_WIDTH)
-	local new_index = Imgui.combo(self.__class_name .. "_SET_PRIORITY", "", PRIORITY_COMBO_ITEMS,
-		self._combo_index, false)
+	local new_index = Imgui.combo(SET_PRIORITY_COMBO_ID, "", PRIORITY_COMBO_ITEMS, self._combo_index, false)
 	Imgui_helpers.pop_width(width_pushed)
 
 	if new_index and new_index ~= self._combo_index then
@@ -65,13 +68,13 @@ function PriorityComponent:update()
 		self._combo_index = DEFAULT_COMBO_INDEX
 	end
 
-	if Imgui.button(mod:localize(SET_SELECTED_DEFAULT_LOC_ID)) then
+	if Imgui.button(L.SET_SELECTED_DEFAULT) then
 		self:_apply_to_selected(BuffPriorities.DEFAULT)
 	end
 
-	if Imgui.button(mod:localize(RESET_ALL_LOC_ID)) then
+	if Imgui.button(L.RESET_ALL) then
 		local cleared_count = BuffPriorities.reset_all()
-		self._action_status = mod:localize(RESET_ALL_DONE_LOC_ID, cleared_count)
+		self._action_status = mod:localize("gbm_priority_reset_all_done", cleared_count)
 		ActionHistory.log(mod:localize("gbm_hist_prio_reset_all", cleared_count))
 	end
 

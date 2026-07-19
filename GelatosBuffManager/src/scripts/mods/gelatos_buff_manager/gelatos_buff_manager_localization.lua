@@ -97,6 +97,12 @@ return {
 	gbm_hist_warn_create_duplicate = {
 		en = "Clicked \"Create buff bar\", but [%s] already exists. Nothing created.",
 	},
+	gbm_hist_warn_bar_soft_limit = {
+		en = "You now have %d of a maximum %d bars. Each extra bar makes every add/remove slower and stacks higher up the screen.",
+	},
+	gbm_hist_warn_bar_limit_reached = {
+		en = "Bar limit of %d reached. Delete a bar before creating another one.",
+	},
 	gbm_hist_added_to_bar = {
 		en = "Added %d selected buff(s) to bar: [%s].",
 	},

@@ -8,12 +8,18 @@ local ActionHistory = mod:io_dofile("gelatos_buff_manager/scripts/mods/gelatos_b
 local CLASS_NAME = "SettingsComponent"
 
 local TOGGLE_DEFAULT_BAR_SETTING_ID = "default_buff_bar_enabled"
-local RESET_SETTINGS_LOC_ID = "gbm_reset_settings"
-local RESET_SETTINGS_DESC_LOC_ID = "gbm_reset_settings_description"
-local REINDEX_CATALOG_LOC_ID = "gbm_reindex_catalog"
-local REINDEX_CATALOG_DESC_LOC_ID = "gbm_reindex_catalog_description"
-local DUMP_IMGUI_API_LOC_ID = "gbm_dump_imgui_api"
-local DUMP_IMGUI_API_DESC_LOC_ID = "gbm_dump_imgui_api_description"
+-- Static labels resolved once at load, not re-localized every frame.
+local L = {
+	RESET_SETTINGS = mod:localize("gbm_reset_settings"),
+	RESET_SETTINGS_DESC = mod:localize("gbm_reset_settings_description"),
+	REINDEX_CATALOG = mod:localize("gbm_reindex_catalog"),
+	REINDEX_CATALOG_DESC = mod:localize("gbm_reindex_catalog_description"),
+	DUMP_IMGUI_API = mod:localize("gbm_dump_imgui_api"),
+	DUMP_IMGUI_API_DESC = mod:localize("gbm_dump_imgui_api_description"),
+	HIST_REINDEXED = mod:localize("gbm_hist_reindexed"),
+	HIST_IMGUI_DUMPED = mod:localize("gbm_hist_imgui_dumped"),
+	HIST_SETTINGS_RESET = mod:localize("gbm_hist_settings_reset"),
+}
 
 local ERROR_PREFIX_FMT = "[%s][%s]"
 
@@ -37,17 +43,17 @@ function SettingsComponent:init(settings_widgets)
 end
 
 function SettingsComponent:_update_reindex_catalog()
-	if Imgui.button(mod:localize(REINDEX_CATALOG_LOC_ID)) then
-		ActionHistory.log(mod:localize("gbm_hist_reindexed"))
+	if Imgui.button(L.REINDEX_CATALOG) then
+		ActionHistory.log(L.HIST_REINDEXED)
 		mod:reindex_buffs_catalog()
 	end
 	Imgui.same_line()
-	Imgui.text(mod:localize(REINDEX_CATALOG_DESC_LOC_ID))
+	Imgui.text(L.REINDEX_CATALOG_DESC)
 end
 
 function SettingsComponent:_update_dump_imgui_api()
-	if Imgui.button(mod:localize(DUMP_IMGUI_API_LOC_ID)) then
-		ActionHistory.log(mod:localize("gbm_hist_imgui_dumped"))
+	if Imgui.button(L.DUMP_IMGUI_API) then
+		ActionHistory.log(L.HIST_IMGUI_DUMPED)
 		local keys = {}
 		for key in pairs(Imgui) do
 			keys[#keys + 1] = tostring(key)
@@ -62,7 +68,7 @@ function SettingsComponent:_update_dump_imgui_api()
 		end
 	end
 	Imgui.same_line()
-	Imgui.text(mod:localize(DUMP_IMGUI_API_DESC_LOC_ID))
+	Imgui.text(L.DUMP_IMGUI_API_DESC)
 end
 
 local function _reset_widgets_recursive(widgets)
@@ -78,20 +84,20 @@ local function _reset_widgets_recursive(widgets)
 end
 
 function SettingsComponent:_update_reset_settings()
-	if Imgui.button(mod:localize(RESET_SETTINGS_LOC_ID)) then
+	if Imgui.button(L.RESET_SETTINGS) then
 		_reset_widgets_recursive(self._settings_widgets)
 		mod:set("bars", {})
 		mod:set("buffs_data", {})
 		mod:set("bar_active_states", {})
 		mod:set("gbm_bar_slots", nil)
 		BuffPriorities.reset_all()
-		ActionHistory.log(mod:localize("gbm_hist_settings_reset"))
+		ActionHistory.log(L.HIST_SETTINGS_RESET)
 		mod:bump_buffs_data_revision()
 		mod:reindex_buffs_catalog()
 		mod.recreate_hud()
 	end
 	Imgui.same_line()
-	Imgui.text(mod:localize(RESET_SETTINGS_DESC_LOC_ID))
+	Imgui.text(L.RESET_SETTINGS_DESC)
 end
 
 function SettingsComponent:update()

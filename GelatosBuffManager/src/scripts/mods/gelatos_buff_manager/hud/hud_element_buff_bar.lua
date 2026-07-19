@@ -394,11 +394,10 @@ end
 -- -------------------------------
 
 function HudElementBuffBar:draw(dt, t, ui_renderer, render_settings, input_service)
-	if self._is_hidden then
-		return
-	end
-
-	if mod:is_in_hub() then
+	-- The filter cache still holds the last poll's buff instances. Syncing stops while hidden, so
+	-- drop them rather than pinning them alive until the next HUD recreate.
+	if self._is_hidden or mod:is_in_hub() then
+		_clear_array(self._filtered_buffs_cache)
 		return
 	end
 
